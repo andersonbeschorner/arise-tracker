@@ -31,6 +31,17 @@ header{background:var(--bg2);border-bottom:1px solid var(--border2);padding:0 24
 .date-picker .sep{color:var(--dim);pointer-events:none;margin:0 2px}
 .btn-reset{background:transparent;border:1px solid var(--red);color:var(--red);padding:6px 14px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:.2s;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)}
 .btn-reset:hover{background:var(--red);color:#fff}
+.btn-login{background:transparent;border:1px solid var(--purple2);color:var(--purple2);padding:6px 14px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:.2s;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);display:flex;align-items:center;gap:6px}
+.btn-login:hover{background:var(--purple3);color:#fff}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--purple2);padding:5px 12px;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)}
+.user-dot{color:var(--green);font-size:10px}
+#user-email{font-family:'Orbitron',monospace;font-size:11px;color:var(--purple2);font-weight:700;letter-spacing:1px}
+.user-logout{color:var(--dim);cursor:pointer;font-size:12px;transition:.2s;padding:0 2px}
+.user-logout:hover{color:var(--red)}
+#auth-switch a{color:var(--purple2);text-decoration:none}
+#auth-switch a:hover{text-decoration:underline}
+.sync-indicator{position:fixed;bottom:60px;right:24px;background:var(--surface2);border:1px solid var(--border);padding:8px 14px;font-size:12px;color:var(--muted);clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);z-index:1999;transform:translateY(60px);opacity:0;transition:.3s}
+.sync-indicator.show{transform:translateY(0);opacity:1}
 
 /* TABS */
 .tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto}
@@ -206,6 +217,13 @@ td.an.pct{color:var(--purple2)}
       <select id="selYear" onchange="onYearChange()"></select>
     </div>
     <button class="btn-reset" onclick="document.getElementById('resetModal').classList.add('show')">⟳ Resetar</button>
+    <button class="btn-login" id="btn-login" onclick="showAuthModal('login')">☁ Sincronizar</button>
+    <div class="user-chip" id="user-chip" style="display:none">
+      <span class="user-dot">●</span>
+      <span id="user-email"></span>
+      <span id="sync-dot" style="font-size:9px;opacity:.3;transition:.3s;display:none" title="Salvo na nuvem">⬡</span>
+      <span class="user-logout" onclick="logout()">✕</span>
+    </div>
   </div>
 </header>
 
@@ -296,6 +314,24 @@ td.an.pct{color:var(--purple2)}
 
 </main>
 
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal" data-mode="login">
+  <div class="modal">
+    <h3 id="auth-title">☁ Entrar na Conta</h3>
+    <p>Dados sincronizados em qualquer dispositivo.</p>
+    <label>Email</label>
+    <input type="email" id="auth-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doAuth()">
+    <label>Senha</label>
+    <input type="password" id="auth-password" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')doAuth()">
+    <div id="auth-msg" style="font-size:13px;min-height:18px;margin-bottom:14px"></div>
+    <div class="modal-btns">
+      <div id="auth-switch" style="font-size:12px;color:var(--muted);flex:1;align-self:center"></div>
+      <button class="btn-cancel" onclick="closeAuthModal()">Cancelar</button>
+      <button class="btn-confirm" id="auth-submit" onclick="doAuth()">Entrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- RESET MODAL -->
 <div class="modal-overlay" id="resetModal">
   <div class="modal">
@@ -369,6 +405,17 @@ const DEF_MONTHLY = [
 ];
 
 // ══════════════════════════════════════════════
+// SUPABASE — configuração
+// ══════════════════════════════════════════════
+// Preenchido automaticamente pelo configurar_supabase.py:
+window._SB_URL = 'https://lpqgbumepupoktuocmgw.supabase.co';
+window._SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwcWdidW1lcHVwb2t0dW9jbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTA3MDMsImV4cCI6MjA5MTY2NjcwM30.3fTsmN0wQuZkrA68uoTgDEdcRQp4qpqwF3Rh2iM4gGM';
+const SB_URL = (window._SB_URL || '').replace(/\/$/, '');
+const SB_KEY = window._SB_KEY || '';
+
+const SB_CONFIGURED = !!(SB_URL && SB_KEY);
+
+// ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
 function freshState() {
@@ -388,15 +435,265 @@ function freshState() {
   };
 }
 
-let S;
-try {
-  const raw = localStorage.getItem('arise_v4');
-  S = raw ? JSON.parse(raw) : freshState();
-  if (!S.ver || S.ver < 4) S = freshState();
-} catch(e) { S = freshState(); }
+let S = freshState();
+let _sbUser   = null;   // { id, email, access_token }
+let _saveTimer = null;
 
-function save() { try { localStorage.setItem('arise_v4', JSON.stringify(S)); } catch(e) {} }
+// ── LocalStorage ─────────────────────────────
+function lsLoad() {
+  try {
+    const r = localStorage.getItem('arise_v4');
+    if (r) { const p = JSON.parse(r); if (p && p.ver >= 4) return p; }
+  } catch(e) {}
+  return null;
+}
+function lsSave(s) {
+  try { localStorage.setItem('arise_v4', JSON.stringify(s)); } catch(e) {}
+}
 
+// ── Supabase REST helpers ─────────────────────
+// Uses the /rest/v1/ API directly — no JS SDK needed.
+// Table: arise_data (id uuid PK = user_id, payload jsonb, updated_at timestamptz)
+
+function _sbH(userToken) {
+  // Always send apikey. Authorization = user JWT when available, else anon key.
+  return {
+    'apikey':         SB_KEY,
+    'Authorization':  'Bearer ' + (userToken || SB_KEY),
+    'Content-Type':   'application/json',
+    'Accept':         'application/json',
+  };
+}
+
+// Sign up with email + password
+async function sbSignUp(email, password) {
+  const r = await fetch(SB_URL + '/auth/v1/signup', {
+    method:  'POST',
+    headers: _sbH(),
+    body:    JSON.stringify({ email, password }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.msg || j.error_description || j.message || 'Erro no cadastro');
+  return j; // { user, session } or { id, email } depending on email confirm setting
+}
+
+// Sign in — returns { access_token, user }
+async function sbSignIn(email, password) {
+  const r = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+    method:  'POST',
+    headers: _sbH(),
+    body:    JSON.stringify({ email, password }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error_description || j.msg || j.message || 'Credenciais inválidas');
+  return j; // { access_token, token_type, user, ... }
+}
+
+// Verify a stored token is still valid
+async function sbVerifyToken(token) {
+  const r = await fetch(SB_URL + '/auth/v1/user', {
+    headers: _sbH(token),
+  });
+  if (!r.ok) return null;
+  return r.json(); // user object
+}
+
+// Load data row for this user
+async function sbLoad(token, userId) {
+  const r = await fetch(
+    SB_URL + '/rest/v1/arise_data?id=eq.' + userId + '&select=payload&limit=1',
+    { headers: _sbH(token) }
+  );
+  if (!r.ok) return null;
+  const rows = await r.json();
+  return (rows && rows.length > 0) ? rows[0].payload : null;
+}
+
+// Upsert data row
+async function sbSave(token, userId, payload) {
+  const r = await fetch(SB_URL + '/rest/v1/arise_data', {
+    method:  'POST',
+    headers: { ..._sbH(token), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body:    JSON.stringify({ id: userId, payload, updated_at: new Date().toISOString() }),
+  });
+  return r.ok || r.status === 204;
+}
+
+// ── Unified save ─────────────────────────────
+function save() {
+  lsSave(S);
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    if (_sbUser) {
+      const ok = await sbSave(_sbUser.access_token, _sbUser.id, S);
+      showSyncDot(ok ? 'saved' : 'error');
+    }
+  }, 1500);
+}
+
+// ── Sync dot indicator ───────────────────────
+function showSyncDot(state) {
+  const dot = document.getElementById('sync-dot');
+  if (!dot) return;
+  dot.title = state === 'saved' ? 'Salvo na nuvem' : 'Erro ao salvar';
+  dot.style.color = state === 'saved' ? 'var(--green)' : 'var(--amber)';
+  dot.style.opacity = '1';
+  clearTimeout(dot._t);
+  dot._t = setTimeout(() => { dot.style.opacity = '0.3'; }, 2000);
+}
+
+// ══════════════════════════════════════════════
+// AUTH UI
+// ══════════════════════════════════════════════
+function showAuthModal(mode) {
+  mode = mode || 'login';
+  const modal = document.getElementById('authModal');
+  modal.dataset.mode = mode;
+  modal.classList.add('show');
+  document.getElementById('auth-title').textContent  = mode === 'login' ? '☁ Entrar na Conta' : '☁ Criar Conta';
+  document.getElementById('auth-submit').textContent = mode === 'login' ? 'Entrar' : 'Criar Conta';
+  document.getElementById('auth-switch').innerHTML   = mode === 'login'
+    ? 'Sem conta? <a href="#" onclick="showAuthModal(\'signup\');return false">Criar grátis</a>'
+    : 'Já tem conta? <a href="#" onclick="showAuthModal(\'login\');return false">Entrar</a>';
+  document.getElementById('auth-msg').textContent = '';
+  document.getElementById('auth-email').value    = '';
+  document.getElementById('auth-password').value = '';
+  setTimeout(() => document.getElementById('auth-email').focus(), 100);
+}
+
+function closeAuthModal() {
+  document.getElementById('authModal').classList.remove('show');
+}
+
+async function doAuth() {
+  if (!SB_CONFIGURED) {
+    setAuthMsg('Supabase não configurado. Rode configurar_supabase.py primeiro.', 'error');
+    return;
+  }
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const mode     = document.getElementById('authModal').dataset.mode;
+  const btn      = document.getElementById('auth-submit');
+
+  if (!email || password.length < 6) {
+    setAuthMsg('Email e senha (mín. 6 caracteres) obrigatórios.', 'error'); return;
+  }
+
+  btn.textContent = '...'; btn.disabled = true;
+  setAuthMsg('Conectando...', 'info');
+
+  try {
+    if (mode === 'signup') {
+      const res = await sbSignUp(email, password);
+      // If email confirmation is required, session won't exist yet
+      if (!res.access_token) {
+        setAuthMsg('Conta criada! Confirme seu email e depois faça login.', 'ok');
+        btn.textContent = mode === 'signup' ? 'Criar Conta' : 'Entrar';
+        btn.disabled = false;
+        return;
+      }
+      // Auto-login after signup (email confirmation disabled)
+      _sbUser = { id: res.user.id, email: res.user.email, access_token: res.access_token };
+    } else {
+      const res    = await sbSignIn(email, password);
+      _sbUser = { id: res.user.id, email: res.user.email, access_token: res.access_token };
+    }
+
+    // Persist session
+    localStorage.setItem('arise_sb_session', JSON.stringify(_sbUser));
+
+    // Load cloud data (merge: cloud wins if newer, else push local)
+    setAuthMsg('Carregando dados da nuvem...', 'info');
+    const cloudPayload = await sbLoad(_sbUser.access_token, _sbUser.id);
+
+    if (cloudPayload && cloudPayload.ver >= 4) {
+      S = cloudPayload;
+      lsSave(S);
+    } else {
+      // First login — push existing local data to cloud
+      const local = lsLoad();
+      if (local) S = local;
+      await sbSave(_sbUser.access_token, _sbUser.id, S);
+    }
+
+    closeAuthModal();
+    updateAuthUI();
+    refreshAll();
+    toast('✓ Conectado — dados sincronizados!');
+
+  } catch(err) {
+    setAuthMsg(err.message || 'Erro de conexão.', 'error');
+  } finally {
+    btn.textContent = mode === 'signup' ? 'Criar Conta' : 'Entrar';
+    btn.disabled = false;
+  }
+}
+
+function setAuthMsg(msg, type) {
+  const el = document.getElementById('auth-msg');
+  el.textContent = msg;
+  el.style.color = type === 'error' ? 'var(--red)' : type === 'ok' ? 'var(--green)' : 'var(--muted)';
+}
+
+function logout() {
+  localStorage.removeItem('arise_sb_session');
+  _sbUser = null;
+  updateAuthUI();
+  toast('Sessão encerrada. Dados locais mantidos.');
+}
+
+function updateAuthUI() {
+  const loginBtn = document.getElementById('btn-login');
+  const userChip = document.getElementById('user-chip');
+  const userEmail= document.getElementById('user-email');
+  const syncDot  = document.getElementById('sync-dot');
+  if (_sbUser) {
+    loginBtn.style.display = 'none';
+    userChip.style.display = 'flex';
+    userEmail.textContent  = _sbUser.email.split('@')[0];
+    if (syncDot) syncDot.style.display = 'inline';
+  } else {
+    loginBtn.style.display = 'flex';
+    userChip.style.display = 'none';
+    if (syncDot) syncDot.style.display = 'none';
+  }
+}
+
+// ── Boot: restore session on page load ───────
+async function bootAuth() {
+  // Load local data first so app works immediately
+  const local = lsLoad();
+  if (local) S = local;
+
+  if (!SB_CONFIGURED) return;
+
+  try {
+    const saved = localStorage.getItem('arise_sb_session');
+    if (!saved) return;
+    const session = JSON.parse(saved);
+    if (!session || !session.access_token) return;
+
+    // Verify token is still valid
+    const user = await sbVerifyToken(session.access_token);
+    if (!user) {
+      localStorage.removeItem('arise_sb_session');
+      return;
+    }
+
+    _sbUser = { ...session, id: user.id, email: user.email };
+    localStorage.setItem('arise_sb_session', JSON.stringify(_sbUser));
+
+    // Sync from cloud
+    const cloudPayload = await sbLoad(_sbUser.access_token, _sbUser.id);
+    if (cloudPayload && cloudPayload.ver >= 4) {
+      S = cloudPayload;
+      lsSave(S);
+    }
+  } catch(e) {
+    // Offline or token expired — keep using local data silently
+    console.warn('bootAuth:', e.message);
+  }
+}
 // ── Date helpers ─────────────────────────────
 function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 
@@ -962,11 +1259,16 @@ function toast(msg) {
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
-initDateSelectors();
-renderDaily();
-updateDailyStats();
-renderDailyCharts();
-renderMental();
+async function init() {
+  await bootAuth();
+  initDateSelectors();
+  renderDaily();
+  updateDailyStats();
+  renderDailyCharts();
+  renderMental();
+  updateAuthUI();
+}
+init();
 </script>
 </body>
 </html>
