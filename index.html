@@ -225,6 +225,24 @@ td.an.pct{color:var(--purple2)}
   animation:xp-float .9s ease-out forwards;
   text-shadow:0 0 12px currentColor;
 }
+
+/* INLINE EDIT */
+.habit-name-text{cursor:pointer;flex:1}
+.habit-name-text:hover{color:#fff}
+.habit-edit-input{
+  background:var(--bg3);border:1px solid var(--purple2);color:var(--text);
+  font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;
+  padding:2px 6px;outline:none;width:100%;max-width:160px;
+  clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);
+}
+.edit-icon{opacity:0;cursor:pointer;color:var(--purple2);font-size:10px;
+  margin-left:6px;transition:.15s;flex-shrink:0;user-select:none}
+.daily-table tr:hover .edit-icon,
+.week-item:hover .edit-icon,
+.monthly-table tr:hover .edit-icon{opacity:.7}
+.edit-icon:hover{opacity:1!important}
+.today-col{background:rgba(232,200,112,.07)!important;border-left:2px solid var(--gold)!important;border-right:2px solid var(--gold)!important}
+.today-head{color:var(--gold2)!important;background:rgba(232,200,112,.1)!important}
 </style>
 </head>
 <body>
@@ -804,15 +822,18 @@ function initDateSelectors() {
   const now = new Date();
   const nowY = now.getFullYear(), nowM = now.getMonth();
 
-  // Clamp — no past dates
-  if (S.activeYear < nowY || (S.activeYear === nowY && S.activeMonth < nowM)) {
-    S.activeYear = nowY; S.activeMonth = nowM; save();
+  // Always default to the real current month/year from computer clock
+  // Allow past months so the user can review history
+  if (!S.activeYear || !S.activeMonth && S.activeMonth !== 0) {
+    S.activeYear  = nowY;
+    S.activeMonth = nowM;
+    save();
   }
 
-  // Year selector: current year + 2
   const selY = document.getElementById('selYear');
   selY.innerHTML = '';
-  for (let y = nowY; y <= nowY + 2; y++) {
+  // Show 3 years back + 2 years forward for full history access
+  for (let y = nowY - 3; y <= nowY + 2; y++) {
     const o = document.createElement('option');
     o.value = y; o.textContent = y;
     if (y === S.activeYear) o.selected = true;
@@ -823,25 +844,19 @@ function initDateSelectors() {
 }
 
 function populateMonths(year, selMonth) {
-  const now = new Date();
   const selM = document.getElementById('selMonth');
-  const startM = (year === now.getFullYear()) ? now.getMonth() : 0;
   selM.innerHTML = '';
-  for (let m = startM; m < 12; m++) {
+  for (let m = 0; m < 12; m++) {
     const o = document.createElement('option');
     o.value = m; o.textContent = MONTHS_FULL[m].toUpperCase();
     if (m === selMonth) o.selected = true;
     selM.appendChild(o);
   }
-  if (parseInt(selM.value) < startM) selM.value = startM;
 }
 
 function onYearChange() {
   const y = parseInt(document.getElementById('selYear').value);
-  const now = new Date();
-  const minM = (y === now.getFullYear()) ? now.getMonth() : 0;
-  let m = parseInt(document.getElementById('selMonth').value);
-  if (m < minM) m = minM;
+  const m = parseInt(document.getElementById('selMonth').value);
   populateMonths(y, m);
   S.activeYear = y; S.activeMonth = m; save();
   refreshAll();
@@ -884,6 +899,10 @@ function renderDaily() {
 
 function renderDailyHead() {
   const days = DAYS(), spans = SPANS(), dow = DOWARR();
+  const now  = new Date();
+  const isCurrentMonth = (CM() === now.getMonth() && CY() === now.getFullYear());
+  const todayD = isCurrentMonth ? now.getDate() - 1 : -1;
+
   let r1 = '<tr><th class="habit-col" rowspan="2">Meus Hábitos</th>';
   spans.forEach(w => {
     r1 += '<th colspan="' + (w.end - w.start + 1) + '" class="week-head">' + w.label + '</th>';
@@ -891,8 +910,12 @@ function renderDailyHead() {
   r1 += '<th colspan="3" class="analysis-head" rowspan="2">Análise</th></tr>';
   let r2 = '<tr>';
   for (let d = 0; d < days; d++) {
-    const dw = dow[d];
-    r2 += '<th' + (WEEKEND_SET.has(dw) ? ' class="wd"' : '') + '>' + dw + '<br><span style="color:var(--text);font-family:\'Orbitron\',monospace;font-size:9px">' + (d+1) + '</span></th>';
+    const dw  = dow[d];
+    const tod = (d === todayD);
+    const cls = (tod ? 'today-head' : (WEEKEND_SET.has(dw) ? 'wd' : ''));
+    r2 += '<th' + (cls ? ' class="' + cls + '"' : '') + '>'
+      + dw + '<br><span style="color:' + (tod ? 'var(--gold2)' : 'var(--text)') + ';font-family:\'Orbitron\',monospace;font-size:9px">'
+      + (d+1) + (tod ? '◆' : '') + '</span></th>';
   }
   r2 += '</tr>';
   document.getElementById('d-head').innerHTML = r1 + r2;
@@ -900,12 +923,21 @@ function renderDailyHead() {
 
 function renderDailyBody() {
   const days = DAYS();
+  const now  = new Date();
+  const isCurrentMonth = (CM() === now.getMonth() && CY() === now.getFullYear());
+  const todayD = isCurrentMonth ? now.getDate() - 1 : -1; // 0-indexed
+
   let html = '';
   S.dailyHabits.forEach((h, hi) => {
-    html += '<tr><td class="habit-name">' + h.name + '<span class="del-btn" onclick="delDaily(' + hi + ')">✕</span></td>';
+    html += '<tr><td class="habit-name" style="display:flex;align-items:center;gap:4px">'
+      + '<span class="habit-name-text" id="dname-' + hi + '" onclick="startEditDaily(' + hi + ')">' + escH(h.name) + '</span>'
+      + '<span class="edit-icon" onclick="startEditDaily(' + hi + ')">✎</span>'
+      + '<span class="del-btn" onclick="delDaily(' + hi + ')">✕</span>'
+      + '</td>';
     for (let d = 0; d < days; d++) {
-      const on = !!S.dailyChecks[dKey(hi, d)];
-      html += '<td class="check-cell ' + (on ? 'on' : 'off') + '" onclick="toggleDaily(' + hi + ',' + d + ')">' + (on ? '✓' : '·') + '</td>';
+      const on  = !!S.dailyChecks[dKey(hi, d)];
+      const tod = (d === todayD) ? ' today-col' : '';
+      html += '<td class="check-cell ' + (on ? 'on' : 'off') + tod + '" onclick="toggleDaily(' + hi + ',' + d + ')">' + (on ? '✓' : '·') + '</td>';
     }
     const cnt = countHabit(hi), pct = Math.round(cnt / days * 100);
     html += '<td class="an">' + cnt + '</td><td class="an pct">' + pct + '%</td>';
@@ -916,21 +948,44 @@ function renderDailyBody() {
     html += '<tr class="sum-row ' + pair[1] + '"><td class="habit-name">' + pair[0] + '</td>';
     for (let d = 0; d < days; d++) {
       const tot = S.dailyHabits.length, done = countDay(d);
-      let val, style = '';
+      const tod = (d === todayD) ? ' today-col' : '';
+      let val, style = tod ? 'background:rgba(232,200,112,.07)' : '';
       if (si === 0) {
         val = (tot > 0 ? Math.round(done / tot * 100) : 0) + '%';
-        style = 'color:' + (done/tot > 0.7 ? 'var(--green)' : done/tot > 0.4 ? 'var(--amber)' : 'var(--red)');
-      } else if (si === 1) {
-        val = done;
-      } else {
-        val = tot - done;
-      }
+        style += ';color:' + (done/tot > 0.7 ? 'var(--green)' : done/tot > 0.4 ? 'var(--amber)' : 'var(--red)');
+      } else if (si === 1) { val = done;
+      } else { val = tot - done; }
       html += '<td style="' + style + '">' + val + '</td>';
     }
     html += '<td></td><td></td><td></td></tr>';
   });
 
   document.getElementById('d-body').innerHTML = html;
+}
+
+function escH(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function startEditDaily(hi) {
+  const span = document.getElementById('dname-' + hi);
+  if (!span) return;
+  const current = S.dailyHabits[hi].name;
+  const inp = document.createElement('input');
+  inp.className = 'habit-edit-input';
+  inp.value = current;
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+  function commit() {
+    const v = inp.value.trim();
+    if (v) { S.dailyHabits[hi].name = v; save(); }
+    renderDailyBody();
+  }
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { renderDailyBody(); }
+  });
 }
 
 function toggleDaily(hi, d) {
@@ -1137,9 +1192,12 @@ function renderWeekly() {
     gridHtml += '<div class="week-card"><div class="week-card-title">' + week.label + '</div><div class="week-card-dates">' + week.dates + '</div>';
     S.weeklyHabits.forEach((h, hi) => {
       const on = !!S.weeklyChecks[wKey(hi, wi)];
-      gridHtml += '<div class="week-item' + (on ? ' done-item' : '') + '" onclick="toggleWeekly(' + hi + ',' + wi + ')">' +
-        '<div class="week-chk ' + (on ? 'on' : 'off') + '">' + (on ? '✓' : '') + '</div>' +
-        '<span class="week-label">' + h.name + '</span></div>';
+      gridHtml += '<div class="week-item' + (on ? ' done-item' : '') + '">'
+        + '<div class="week-chk ' + (on ? 'on' : 'off') + '" onclick="toggleWeekly(' + hi + ',' + wi + ')">' + (on ? '✓' : '') + '</div>'
+        + '<span class="week-label" id="wname-' + hi + '-' + wi + '">' + escH(h.name) + '</span>'
+        + '<span class="edit-icon" onclick="startEditWeekly(' + hi + ',' + wi + ')">✎</span>'
+        + (wi === 0 ? '<span class="del-btn" style="font-size:10px" onclick="delWeekly(' + hi + ')">✕</span>' : '')
+        + '</div>';
     });
     gridHtml += '<div class="week-footer"><span style="font-size:11px;color:var(--muted)">' + done + '/' + tot + ' completas</span><span class="week-score">' + pct + '%</span></div>' +
       '<div class="week-pbar"><div class="week-pfill" style="width:' + pct + '%"></div></div></div>';
@@ -1191,9 +1249,68 @@ function addWeekly() {
   save(); renderWeekly(); toast('Missão semanal adicionada!');
 }
 
+function delWeekly(hi) {
+  S.weeklyHabits.splice(hi, 1);
+  const nc = {};
+  Object.keys(S.weeklyChecks).forEach(k => {
+    const parts = k.split('_w_');
+    if (parts.length < 2) return;
+    const [hiwiStr] = [parts[1]];
+    const [h, wi] = hiwiStr.split('_').map(Number);
+    const prefix = parts[0] + '_w_';
+    if (h < hi) nc[k] = S.weeklyChecks[k];
+    else if (h > hi) nc[prefix + (h-1) + '_' + wi] = S.weeklyChecks[k];
+  });
+  S.weeklyChecks = nc;
+  save(); renderWeekly();
+}
+
 // ══════════════════════════════════════════════
 // MONTHLY
 // ══════════════════════════════════════════════
+
+function startEditWeekly(hi, wi) {
+  // Edit the name across all week columns (same habit index)
+  const span = document.getElementById('wname-' + hi + '-' + wi);
+  if (!span) return;
+  const inp = document.createElement('input');
+  inp.className = 'habit-edit-input';
+  inp.value = S.weeklyHabits[hi].name;
+  inp.style.maxWidth = '180px';
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+  function commit() {
+    const v = inp.value.trim();
+    if (v) { S.weeklyHabits[hi].name = v; save(); }
+    renderWeekly();
+  }
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { renderWeekly(); }
+  });
+}
+
+function startEditMonthly(hi) {
+  const span = document.getElementById('mname-' + hi);
+  if (!span) return;
+  const inp = document.createElement('input');
+  inp.className = 'habit-edit-input';
+  inp.value = S.monthlyHabits[hi].name;
+  inp.style.maxWidth = '220px';
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+  function commit() {
+    const v = inp.value.trim();
+    if (v) { S.monthlyHabits[hi].name = v; save(); }
+    renderMonthly(); renderMonthlyCharts();
+  }
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { renderMonthly(); renderMonthlyCharts(); }
+  });
+}
 function renderMonthly() {
   const year = CY();
   document.getElementById('m-year-label').textContent = year;
@@ -1213,8 +1330,11 @@ function renderMonthly() {
       if (li === 0) {
         body += '<td class="cat-cell" rowspan="' + habits.length + '"><span class="cat-badge ' + CAT_META[cat].cls + '">' + CAT_META[cat].label + '</span></td>';
       }
-      body += '<td class="habit-name">' + h.name +
-        '<span class="del-btn" style="opacity:0" onmouseenter="this.style.opacity=\'.8\'" onmouseleave="this.style.opacity=\'0\'" onclick="delMonthly(' + hi + ')">✕</span></td>';
+      body += '<td class="habit-name" style="display:flex;align-items:center;gap:4px">'
+        + '<span id="mname-' + hi + '" class="habit-name-text">' + escH(h.name) + '</span>'
+        + '<span class="edit-icon" onclick="startEditMonthly(' + hi + ')">✎</span>'
+        + '<span class="del-btn" onclick="delMonthly(' + hi + ')">✕</span>'
+        + '</td>';
       for (let mi = 0; mi < 12; mi++) {
         const on = !!S.monthlyChecks[hi + '_' + mi];
         body += '<td class="mchk ' + (on ? 'on' : 'off') + '"' + (mi === CM() ? ' style="background:rgba(201,168,76,.05)!important"' : '') +
