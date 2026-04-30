@@ -115,7 +115,7 @@ main{padding:28px 24px;max-width:1400px;margin:0 auto;position:relative;z-index:
 .daily-table td{border:1px solid var(--border3);text-align:center;padding:2px;transition:.15s}
 .daily-table td.habit-name{text-align:left;padding:8px 14px;font-size:13px;font-weight:700;white-space:nowrap;background:rgba(24,24,48,.8)!important;display:flex;align-items:center;gap:4px}
 .del-btn{opacity:0;cursor:pointer;color:var(--red);font-size:11px;margin-left:4px;transition:.15s;font-weight:900;flex-shrink:0}
-.daily-table tr:hover .del-btn,.week-item:hover .del-btn,.monthly-table tr:hover .del-btn{opacity:.6}
+.daily-table td.habit-name:hover .del-btn,.week-item:hover .del-btn,.monthly-table td.habit-name:hover .del-btn{opacity:.6}
 .del-btn:hover{opacity:1!important}
 .daily-table tr:nth-child(even) td{background:rgba(17,17,34,.6)}
 .daily-table tr:nth-child(odd) td{background:rgba(7,7,15,.6)}
@@ -251,7 +251,7 @@ td.an.pct{color:var(--purple2)}
 .habit-name-text:hover{color:#fff}
 .habit-edit-input{background:var(--bg3);border:1px solid var(--purple2);color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:2px 8px;outline:none;width:100%;max-width:160px;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
 .edit-icon{opacity:0;cursor:pointer;color:var(--purple2);font-size:10px;margin-left:4px;transition:.15s;flex-shrink:0;user-select:none}
-.daily-table tr:hover .edit-icon,.week-item:hover .edit-icon,.monthly-table tr:hover .edit-icon{opacity:.7}
+.daily-table td.habit-name:hover .edit-icon,.week-item:hover .edit-icon,.monthly-table td.habit-name:hover .edit-icon{opacity:.7}
 .edit-icon:hover{opacity:1!important}
 .today-col{background:rgba(232,200,112,.06)!important;border-left:2px solid var(--gold)!important;border-right:2px solid var(--gold)!important}
 .today-head{color:var(--gold2)!important;background:rgba(232,200,112,.1)!important}
@@ -274,63 +274,275 @@ td.an.pct{color:var(--purple2)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--green);color:var(--green);padding:12px 24px;font-size:13px;font-weight:700;letter-spacing:1px;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);z-index:2000;opacity:0;transition:.3s;white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
-@media(max-width:768px){
-  .stats-bar{grid-template-columns:1fr 1fr}
-  .charts-grid,.mental-grid{grid-template-columns:1fr}
-  .reflection-grid{grid-template-columns:1fr}
-  header{padding:0 12px}
-  main{padding:16px 12px}
-  .hero-silhouette{display:none}
-  .hero-title{font-size:32px}
+
+/* ── XP PANEL CLASSES ── */
+.xp-panel{background:rgba(7,7,15,.92);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:62px;z-index:190;backdrop-filter:blur(12px)}
+.xp-main{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.xp-rank-badge{font-family:var(--font-display);font-size:22px;font-weight:900;color:#777;width:44px;text-align:center;text-shadow:0 0 16px currentColor;flex-shrink:0}
+.xp-bar-area{flex:1;min-width:0}
+.xp-bar-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:6px}
+.xp-rank-title{font-family:var(--font-display);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xp-level-badge{font-family:var(--font-display);font-size:10px;font-weight:700;color:var(--gold2);flex-shrink:0}
+.xp-track{height:7px;background:var(--bg3);clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)}
+.xp-fill{height:100%;width:0%;transition:width .6s ease;background:var(--purple2)}
+.xp-bar-footer{display:flex;justify-content:space-between;margin-top:3px}
+.xp-label{font-size:9px;color:var(--muted);font-family:var(--font-display)}
+.xp-label.dim{color:var(--dim)}
+.xp-stats{display:flex;gap:12px;flex-shrink:0}
+.xp-stat{text-align:center;min-width:36px}
+.xp-stat-label{font-size:8px;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:2px;white-space:nowrap}
+.xp-stat-val{font-family:var(--font-display);font-size:13px;font-weight:700}
+.xp-stat-val.purple2{color:var(--purple2)}
+.xp-stat-val.amber{color:var(--amber)}
+.xp-stat-val.gold2{color:var(--gold2)}
+.xp-stat-val.muted{color:var(--muted)}
+
+/* ── HEADER ICON BUTTONS ── */
+.logo-sup{font-size:9px;letter-spacing:2px;color:var(--gold2);vertical-align:super}
+.btn-icon{background:transparent;border:1px solid var(--border2);color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:.2s;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);flex-shrink:0}
+.btn-icon:hover{background:rgba(88,56,230,.15);color:var(--text)}
+.btn-icon-purple{border-color:var(--purple2);color:var(--purple2)}
+.btn-icon-purple:hover{background:var(--purple3);color:#fff}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .weekly-grid{grid-template-columns:1fr 1fr}
 }
+
+@media(max-width:768px){
+  /* Header */
+  header{padding:0 10px;height:54px}
+  .logo{font-size:15px;letter-spacing:3px}
+  .logo-sup{display:none}
+  .header-right{gap:6px}
+  .date-picker{padding:4px 8px}
+  .date-picker select{font-size:10px;letter-spacing:0}
+  .tabs{top:54px;padding:0 8px}
+  .tab{padding:11px 14px;font-size:11px;letter-spacing:1px}
+
+  /* XP panel */
+  .xp-panel{top:54px;padding:8px 10px;gap:8px;flex-wrap:nowrap}
+  .xp-rank-badge{font-size:18px;width:36px}
+  .xp-rank-title{font-size:8px;letter-spacing:1px}
+  .xp-stats{gap:8px}
+  .xp-stat-val{font-size:11px}
+  .xp-stat-label{font-size:7px}
+
+  /* Main layout */
+  main{padding:12px 10px}
+  .stats-bar{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  .stat-card{padding:12px 10px}
+  .stat-value{font-size:18px}
+  .stat-label{font-size:8px;letter-spacing:1px}
+
+  /* Charts */
+  .charts-grid{grid-template-columns:1fr;gap:12px}
+  .chart-wrap{height:160px}
+
+  /* Mental */
+  .mental-grid{grid-template-columns:1fr;gap:12px}
+
+  /* Weekly */
+  .weekly-grid{grid-template-columns:1fr;gap:10px}
+  .reflection-grid{grid-template-columns:1fr}
+
+  /* Daily table — allow horizontal scroll, fix column width */
+  .daily-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -10px;padding:0 10px}
+  .daily-table th.habit-col{min-width:130px;width:130px;font-size:9px}
+  .check-cell{width:22px;min-width:22px;font-size:12px}
+
+  /* Progress */
+  .progress-section{padding:10px 12px;gap:10px}
+  .progress-rank{font-size:9px;letter-spacing:1px}
+  .progress-pct{font-size:11px}
+
+  /* Section head */
+  .section-title{font-size:9px;letter-spacing:2px}
+  .section-add{padding:4px 10px;font-size:10px;letter-spacing:1px}
+
+  /* Add row */
+  .add-input{font-size:13px;padding:8px 12px}
+  .btn-confirm{padding:8px 14px;font-size:12px;letter-spacing:1px}
+
+  /* Hero banner */
+  .hero-banner{padding:24px 16px 20px;margin:-12px -10px 20px}
+  .hero-title{font-size:28px}
+  .hero-sub{font-size:10px;letter-spacing:2px}
+  .hero-eyebrow{font-size:9px;letter-spacing:3px}
+  .hero-silhouette{display:none}
+  .hero-runes{font-size:20px;letter-spacing:10px}
+
+  /* Inventory */
+  .inventory-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+  .inv-card{padding:10px 8px}
+  .inv-icon{font-size:22px}
+  .inv-name{font-size:9px}
+
+  /* Modals */
+  .modal{padding:24px 20px;clip-path:none;border-radius:4px}
+  .modal h3{font-size:14px}
+
+  /* Drop notification */
+  .drop-modal{bottom:60px;right:10px;left:10px;max-width:none}
+
+  /* Toast */
+  .toast{font-size:11px;padding:10px 16px}
+}
+
+@media(max-width:480px){
+  .stats-bar{grid-template-columns:1fr 1fr}
+  .xp-stats{gap:6px}
+  .xp-stat:last-child{display:none} /* hide inventory count on tiny screens */
+  header{height:50px}
+  .tabs{top:50px}
+  .xp-panel{top:50px}
+  .tab{padding:10px 10px;font-size:10px}
+  .daily-table th.habit-col{min-width:110px;width:110px}
+}
+
+
+/* ── ANIME BACKGROUNDS ── */
+body {
+  background-color: var(--bg);
+}
+
+/* Global subtle bg - shadowy dungeon gate */
+.tab-bg-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .18;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  transition: opacity .6s, background-image .6s;
+  filter: saturate(.4) brightness(.5);
+}
+
+/* Vignette on all sides */
+.tab-bg-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 80% at 50% 40%, transparent 20%, rgba(4,4,12,.85) 100%);
+}
+
+/* Daily tab — Blue dungeon portal / Jin-Woo silhouette */
+.tab-bg-overlay.bg-daily {
+  background-image:
+    linear-gradient(to bottom, rgba(4,4,12,.2) 0%, rgba(4,4,12,.75) 100%),
+    url('https://images.unsplash.com/photo-1626544827763-d516dce335e2?w=1600&q=80');
+}
+
+/* Weekly — dark stone corridor, dungeon feel */
+.tab-bg-overlay.bg-weekly {
+  background-image:
+    linear-gradient(to bottom, rgba(4,4,12,.2) 0%, rgba(4,4,12,.75) 100%),
+    url('https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=1600&q=80');
+}
+
+/* Monthly — vast cosmos / galaxy */
+.tab-bg-overlay.bg-monthly {
+  background-image:
+    linear-gradient(to bottom, rgba(4,4,12,.2) 0%, rgba(4,4,12,.75) 100%),
+    url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1600&q=80');
+}
+
+/* Inventory — ancient gold treasure / ruins */
+.tab-bg-overlay.bg-inventory {
+  background-image:
+    linear-gradient(to bottom, rgba(4,4,12,.2) 0%, rgba(4,4,12,.75) 100%),
+    url('https://images.unsplash.com/photo-1519817650390-64a93db51149?w=1600&q=80');
+}
+
+/* Decorative side panels — character art hints */
+.deco-left, .deco-right {
+  position: fixed;
+  top: 130px;
+  bottom: 0;
+  width: 140px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .06;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: saturate(.2) brightness(.4);
+  transition: opacity .4s;
+}
+.deco-left  { left: 0;  background-position: left bottom; }
+.deco-right { right: 0; background-position: right bottom; }
+@media(max-width:1200px){ .deco-left,.deco-right{display:none} }
+
+/* Make main content sit above bg */
+main, .tabs, #xp-panel, header { position: relative; z-index: 1; }
+
+/* Subtle purple ambient light behind the table */
+.daily-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -40px; left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 80px;
+  background: radial-gradient(ellipse, rgba(88,56,230,.08), transparent 70%);
+  pointer-events: none;
+}
+.daily-wrapper { position: relative; }
+
 </style>
 </head>
 <body>
 
 <canvas id="particle-canvas"></canvas>
 
+<!-- Animated background overlay -->
+<div class="tab-bg-overlay bg-daily" id="tab-bg-overlay"></div>
+<div class="deco-left" id="deco-left"></div>
+<div class="deco-right" id="deco-right"></div>
+
 <header>
-  <div class="logo">AR<span>I</span>SE<sup>system</sup></div>
+  <div class="logo">AR<span>I</span>SE<sup class="logo-sup">sys</sup></div>
   <div class="header-right">
     <div class="date-picker">
       <select id="selMonth" onchange="onDateChange()"></select>
       <span class="sep">◆</span>
       <select id="selYear" onchange="onYearChange()"></select>
     </div>
-    <button class="btn-reset" onclick="document.getElementById('resetModal').classList.add('show')">⟳ Resetar</button>
-    <button class="btn-login" id="btn-login" onclick="showAuthModal('login')">☁ Sincronizar</button>
+    <button class="btn-icon" onclick="document.getElementById('resetModal').classList.add('show')" title="Resetar mês">⟳</button>
+    <button class="btn-icon btn-icon-purple" id="btn-login" onclick="showAuthModal('login')" title="Sincronizar">☁</button>
     <div class="user-chip" id="user-chip" style="display:none">
       <span class="user-dot">●</span>
       <span id="user-email"></span>
-      <span id="sync-dot" style="font-size:9px;opacity:.3;transition:.3s;display:none" title="Salvo na nuvem">⬡</span>
+      <span id="sync-dot" style="font-size:9px;opacity:.3;transition:.3s;display:none">⬡</span>
       <span class="user-logout" onclick="logout()">✕</span>
     </div>
   </div>
 </header>
 
 <!-- XP STATUS PANEL -->
-<div id="xp-panel" style="background:rgba(7,7,15,.92);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;position:sticky;top:62px;z-index:190;backdrop-filter:blur(12px)">
-  <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:260px">
-    <div id="rank-badge" style="font-family:'Orbitron',monospace;font-size:24px;font-weight:900;color:#777;min-width:52px;text-align:center;text-shadow:0 0 16px currentColor">E</div>
-    <div style="flex:1">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
-        <span id="rank-title" style="font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Caçador Iniciante</span>
-        <span id="level-badge" style="font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--gold2)">Lv 1</span>
+<div id="xp-panel" class="xp-panel">
+  <div class="xp-main">
+    <div id="rank-badge" class="xp-rank-badge">E</div>
+    <div class="xp-bar-area">
+      <div class="xp-bar-header">
+        <span id="rank-title" class="xp-rank-title">Caçador Iniciante</span>
+        <span id="level-badge" class="xp-level-badge">Lv 1</span>
       </div>
-      <div style="height:8px;background:var(--bg3);border-radius:1px;position:relative;overflow:hidden;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%)">
-        <div id="xp-bar-fill" style="height:100%;width:0%;transition:width .6s ease;background:var(--purple2)"></div>
+      <div class="xp-track">
+        <div id="xp-bar-fill" class="xp-fill"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px">
-        <span id="xp-current" style="font-size:10px;color:var(--muted);font-family:'Orbitron',monospace">0 XP</span>
-        <span id="xp-needed" style="font-size:10px;color:var(--dim);font-family:'Orbitron',monospace">/ 300 XP</span>
+      <div class="xp-bar-footer">
+        <span id="xp-current" class="xp-label">0 XP</span>
+        <span id="xp-needed" class="xp-label dim">/ 300 XP</span>
       </div>
     </div>
   </div>
-  <div style="display:flex;gap:20px;flex-shrink:0">
-    <div style="text-align:center"><div style="font-size:9px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:3px">Total XP</div><div id="xp-total" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:var(--purple2)">0</div></div>
-    <div style="text-align:center"><div style="font-size:9px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:3px">Streak</div><div id="streak-display" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:var(--amber)">0</div></div>
-    <div style="text-align:center"><div style="font-size:9px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:3px">Próx. Rank</div><div id="next-rank" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:var(--muted)">E+</div></div>
-    <div style="text-align:center;cursor:pointer" onclick="switchTab('inventory')"><div style="font-size:9px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:3px">Inventário</div><div id="inv-count-badge" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:var(--gold2)">0</div></div>
+  <div class="xp-stats">
+    <div class="xp-stat"><div class="xp-stat-label">XP Total</div><div id="xp-total" class="xp-stat-val purple2">0</div></div>
+    <div class="xp-stat"><div class="xp-stat-label">Streak</div><div id="streak-display" class="xp-stat-val amber">0</div></div>
+    <div class="xp-stat"><div class="xp-stat-label">Próx. Rank</div><div id="next-rank" class="xp-stat-val muted">E+</div></div>
+    <div class="xp-stat" onclick="switchTab('inventory')" style="cursor:pointer"><div class="xp-stat-label">Itens</div><div id="inv-count-badge" class="xp-stat-val gold2">0</div></div>
   </div>
 </div>
 
@@ -2054,6 +2266,9 @@ function switchTab(t) {
   });
   const banner = document.getElementById('hero-banner');
   if (banner) banner.style.display = t === 'daily' ? 'block' : 'none';
+  // Update background
+  const overlay = document.getElementById('tab-bg-overlay');
+  if (overlay) overlay.className = 'tab-bg-overlay bg-' + t;
   if (t === 'daily')     { renderDaily(); updateDailyStats(); renderDailyCharts(); renderMental(); }
   if (t === 'weekly')    renderWeekly();
   if (t === 'monthly')   { renderMonthly(); renderMonthlyCharts(); }
