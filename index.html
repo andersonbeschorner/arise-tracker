@@ -710,11 +710,19 @@ main, .tabs, #xp-panel, header { position: relative; z-index: 1; }
 <div class="modal-overlay" id="authModal" data-mode="login">
   <div class="modal">
     <h3 id="auth-title">☁ Entrar na Conta</h3>
-    <p>Dados sincronizados em qualquer dispositivo.</p>
+    <p id="auth-desc">Dados sincronizados em qualquer dispositivo.</p>
     <label>Email</label>
     <input type="email" id="auth-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doAuth()">
-    <label>Senha</label>
-    <input type="password" id="auth-password" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')doAuth()">
+    <div id="auth-password-wrap">
+      <label style="display:flex;justify-content:space-between;align-items:center">
+        Senha
+        <a href="#" id="auth-forgot-link" onclick="showAuthModal('forgot');return false"
+           style="font-size:11px;color:var(--purple2);font-weight:600;letter-spacing:1px;text-decoration:none">
+          Esqueci a senha
+        </a>
+      </label>
+      <input type="password" id="auth-password" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')doAuth()">
+    </div>
     <div id="auth-msg" style="font-size:13px;min-height:18px;margin-bottom:14px"></div>
     <div class="modal-btns">
       <div id="auth-switch" style="font-size:12px;color:var(--muted);flex:1;align-self:center"></div>
@@ -1105,22 +1113,60 @@ function showSyncDot(state) {
 // ══════════════════════════════════════════════
 function showAuthModal(mode) {
   mode = mode || 'login';
-  const modal = document.getElementById('authModal');
+  const modal    = document.getElementById('authModal');
+  const pwWrap   = document.getElementById('auth-password-wrap');
+  const forgotLk = document.getElementById('auth-forgot-link');
+  const descEl   = document.getElementById('auth-desc');
   modal.dataset.mode = mode;
   modal.classList.add('show');
-  document.getElementById('auth-title').textContent  = mode === 'login' ? '☁ Entrar na Conta' : '☁ Criar Conta';
-  document.getElementById('auth-submit').textContent = mode === 'login' ? 'Entrar' : 'Criar Conta';
-  document.getElementById('auth-switch').innerHTML   = mode === 'login'
-    ? 'Sem conta? <a href="#" onclick="showAuthModal(\'signup\');return false">Criar grátis</a>'
-    : 'Já tem conta? <a href="#" onclick="showAuthModal(\'login\');return false">Entrar</a>';
+
+  const titles   = { login:'☁ Entrar na Conta', signup:'☁ Criar Conta', forgot:'🔑 Recuperar Senha' };
+  const submits  = { login:'Entrar', signup:'Criar Conta', forgot:'Enviar Email' };
+  const descs    = {
+    login:  'Dados sincronizados em qualquer dispositivo.',
+    signup: 'Crie sua conta gratuitamente.',
+    forgot: 'Enviaremos um link de redefinição para seu email.',
+  };
+
+  document.getElementById('auth-title').textContent  = titles[mode]  || titles.login;
+  document.getElementById('auth-submit').textContent = submits[mode] || submits.login;
+  if (descEl) descEl.textContent = descs[mode] || descs.login;
+
+  // Show/hide password field
+  if (pwWrap)   pwWrap.style.display   = mode === 'forgot' ? 'none' : 'block';
+  if (forgotLk) forgotLk.style.display = mode === 'login'  ? 'inline' : 'none';
+
+  // Switch links
+  const switchHtml = {
+    login:  'Sem conta? <a href="#" onclick="showAuthModal('signup');return false">Criar grátis</a>'
+          + ' &nbsp;·&nbsp; <a href="#" onclick="showAuthModal('forgot');return false">Esqueci a senha</a>',
+    signup: 'Já tem conta? <a href="#" onclick="showAuthModal('login');return false">Entrar</a>',
+    forgot: 'Lembrou? <a href="#" onclick="showAuthModal('login');return false">Voltar ao login</a>',
+  };
+  document.getElementById('auth-switch').innerHTML = switchHtml[mode] || switchHtml.login;
+
   document.getElementById('auth-msg').textContent = '';
-  document.getElementById('auth-email').value    = '';
-  document.getElementById('auth-password').value = '';
+  document.getElementById('auth-email').value     = '';
+  const pw = document.getElementById('auth-password');
+  if (pw) pw.value = '';
   setTimeout(() => document.getElementById('auth-email').focus(), 100);
 }
 
 function closeAuthModal() {
   document.getElementById('authModal').classList.remove('show');
+}
+
+// ── Password reset via Supabase ────────────────
+async function sbResetPassword(email) {
+  const redirectUrl = window.location.href.split('?')[0];
+  const r = await fetch(SB_URL + '/auth/v1/recover', {
+    method:  'POST',
+    headers: _sbH(),
+    body:    JSON.stringify({ email, gotrue_meta_security: {} }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.msg || j.error_description || j.message || 'Erro ao enviar email');
+  return j;
 }
 
 async function doAuth() {
@@ -1129,11 +1175,28 @@ async function doAuth() {
     return;
   }
   const email    = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
+  const password = document.getElementById('auth-password')?.value || '';
   const mode     = document.getElementById('authModal').dataset.mode;
   const btn      = document.getElementById('auth-submit');
 
-  if (!email || password.length < 6) {
+  if (!email) { setAuthMsg('Informe seu email.', 'error'); return; }
+
+  // ── FORGOT PASSWORD MODE ────────────────────
+  if (mode === 'forgot') {
+    btn.textContent = '...'; btn.disabled = true;
+    setAuthMsg('Enviando email...', 'info');
+    try {
+      await sbResetPassword(email);
+      setAuthMsg('✓ Email enviado! Verifique sua caixa de entrada e spam.', 'ok');
+      btn.textContent = 'Enviar Email'; btn.disabled = false;
+    } catch(err) {
+      setAuthMsg(err.message || 'Erro ao enviar email.', 'error');
+      btn.textContent = 'Enviar Email'; btn.disabled = false;
+    }
+    return;
+  }
+
+  if (password.length < 6) {
     setAuthMsg('Email e senha (mín. 6 caracteres) obrigatórios.', 'error'); return;
   }
 
@@ -2190,11 +2253,78 @@ function closeLevelUp() {
   if (ol) ol.style.display = 'none';
 }
 
+
+// ── Reset password modal ────────────────────────
+let _recoveryToken = null;
+
+function showResetPasswordModal(token) {
+  _recoveryToken = token;
+  document.getElementById('resetPasswordModal').classList.add('show');
+  document.getElementById('new-password').focus();
+  // Clear the hash from URL so it's not reused
+  history.replaceState(null, '', window.location.pathname);
+}
+
+async function doResetPassword() {
+  const pw1 = document.getElementById('new-password').value;
+  const pw2 = document.getElementById('confirm-password').value;
+  const msg = document.getElementById('reset-msg');
+  const btn = document.getElementById('reset-submit');
+
+  if (pw1.length < 6) {
+    msg.style.color = 'var(--red)'; msg.textContent = 'Senha deve ter mínimo 6 caracteres.'; return;
+  }
+  if (pw1 !== pw2) {
+    msg.style.color = 'var(--red)'; msg.textContent = 'As senhas não coincidem.'; return;
+  }
+
+  btn.textContent = '...'; btn.disabled = true;
+  msg.style.color = 'var(--muted)'; msg.textContent = 'Salvando...';
+
+  try {
+    const r = await fetch(SB_URL + '/auth/v1/user', {
+      method:  'PUT',
+      headers: { ..._sbH(_recoveryToken), 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ password: pw1 }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.msg || j.message || 'Erro ao salvar senha');
+
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✓ Senha alterada com sucesso! Faça login com a nova senha.';
+    btn.textContent = '▶ Salvar Nova Senha'; btn.disabled = false;
+    _recoveryToken = null;
+
+    setTimeout(() => {
+      document.getElementById('resetPasswordModal').classList.remove('show');
+      showAuthModal('login');
+    }, 2000);
+  } catch(err) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = err.message || 'Erro ao redefinir senha.';
+    btn.textContent = '▶ Salvar Nova Senha'; btn.disabled = false;
+  }
+}
+
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
 async function init() {
-  await bootAuth();
+  // Check if this is a password reset redirect from Supabase email
+  const hash   = window.location.hash;
+  const params = new URLSearchParams(hash.replace('#', ''));
+  const type   = params.get('type');
+
+  if (type === 'recovery') {
+    // Show password reset form
+    const accessToken = params.get('access_token');
+    if (accessToken) {
+      showResetPasswordModal(accessToken);
+    }
+  } else {
+    await bootAuth();
+  }
+
   initDateSelectors();
   renderDaily();
   updateDailyStats();
@@ -2275,5 +2405,22 @@ function switchTab(t) {
   if (t === 'inventory') renderInventory();
 }
 </script>
+
+<!-- RESET PASSWORD MODAL -->
+<div class="modal-overlay" id="resetPasswordModal">
+  <div class="modal">
+    <h3>🔑 Nova Senha</h3>
+    <p>Escolha uma nova senha para sua conta.</p>
+    <label>Nova Senha</label>
+    <input type="password" id="new-password" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')doResetPassword()">
+    <label>Confirmar Senha</label>
+    <input type="password" id="confirm-password" placeholder="Repita a nova senha" onkeydown="if(event.key==='Enter')doResetPassword()">
+    <div id="reset-msg" style="font-size:13px;min-height:18px;margin-bottom:14px"></div>
+    <div class="modal-btns">
+      <button class="btn-confirm" id="reset-submit" onclick="doResetPassword()">▶ Salvar Nova Senha</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
